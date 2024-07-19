@@ -1,0 +1,18 @@
+<!-- like -->
+<div class="flex align-items-center gap-2">
+  <span (click)="likePost()" class="cursor-pointer"
+    [ngClass]="isLiked ? 'pi pi-heart-fill text-red-500' : 'pi pi-heart'"
+    style="font-size: 1.5rem"></span>
+  <span (click)="openDialog()" class="pi pi-comment cursor-pointer" style="font-size: 1.5rem"></span>
+</div>
+
+<!-- count -->
+<div class="flex align-items-center gap-2 mt-2">
+  <small class="font-bold">{{likeCount}} likes</small>
+  <ng-container *ngIf="!isOnPostDetails">
+    <small class="text-gray-500">•</small>
+    <small (click)="openDialog()" class="text-gray-500 cursor-pointer text-xs">View all {{commentCount}} comments</small>
+  </ng-container>
+</div>
+
+
