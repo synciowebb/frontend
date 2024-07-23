@@ -43,14 +43,14 @@ tools {
 
      stage('Update Image Tag in GitOps') {
       steps {
-         checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[credentialsId: 'git-ssh', url: 'git@github.com:synciowebb/frontend.git']])
+         checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[credentialsId: 'git-ssh', url: 'git@github.com:synciowebb/frontend.git']])
         script {
           // Set the new image tag with the Jenkins build number
        sh '''
           sed -i "s/image:.*/image: chuthanh\\/dockerfile-fronted:${VERSION}/" aws/frontend-deployment.yaml
         '''
 
-          sh 'git checkout master'
+          sh 'git checkout main'
           sh 'git add .'
           sh 'git commit -m "Update image tag"'
         sshagent(['git-ssh'])
