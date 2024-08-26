@@ -14,14 +14,18 @@ export class NotificationService {
 
   private apiURL = environment.apiUrl + 'api/v1/notifications';
 
-  private webSocketURL = environment.apiUrl + 'live'; // WebSocket URL with 'live' is the endpoint for the WebSocket configuration in the backend. In WebSocketConfig.java, the endpoint is '/live'.
+  private webSocketURL = environment.apiUrl + 'api/live'; // WebSocket URL with 'api/live' is the endpoint for the WebSocket configuration in the backend. In WebSocketConfig.java, the endpoint is '/api/live'.
   private stompClient: CompatClient = {} as CompatClient;
   private notificationSubject: BehaviorSubject<Notification> = new BehaviorSubject<Notification>({}); // BehaviorSubject of Notification type. You can know when a new notification is received.
   private subscription: any
   
   private isConnected = false; // Check if the WebSocket is connected. Cause the connectWebSocket method to be called only once for each user.
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient) {  
+    if (environment.android || environment.windows) {
+      this.webSocketURL = this.webSocketURL.replace(environment.apiUrl, window.localStorage.getItem('apiUrl') || environment.apiUrl);
+    }
+  }
 
 
   /* ---------------------------- REALTIME SECTION ---------------------------- */
@@ -47,7 +51,10 @@ export class NotificationService {
     this.stompClient.connect({}, () => {
       this.subscription = this.stompClient.subscribe(`/topic/notification/${userId}`, (notification: IMessage) => {
         this.notificationSubject.next(JSON.parse(notification.body));
-      });
+      }),
+      (error: any) => {
+        console.error(error);
+      }
     });
     this.isConnected = true;
   }

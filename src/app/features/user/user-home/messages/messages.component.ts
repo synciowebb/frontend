@@ -1,12 +1,18 @@
-import { ChangeDetectorRef, Component } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, ViewChild } from '@angular/core';
+import { NavigationEnd, Router } from '@angular/router';
+import { TranslateService } from '@ngx-translate/core';
+import { filter, Subscription } from 'rxjs';
 import { MessageContent, MessageContentTypeEnum } from 'src/app/core/interfaces/message-content';
 import { MessageRoom } from 'src/app/core/interfaces/message-room';
 import { User } from 'src/app/core/interfaces/user';
+import { UserSearch } from 'src/app/core/interfaces/user-search';
+import { LoadingService } from 'src/app/core/services/loading.service';
 import { MessageContentService } from 'src/app/core/services/message-content.service';
 import { MessageRoomMemberService } from 'src/app/core/services/message-room-member.service';
 import { MessageRoomService } from 'src/app/core/services/message-room.service';
+import { ToastService } from 'src/app/core/services/toast.service';
 import { TokenService } from 'src/app/core/services/token.service';
+import { UserSettingService } from 'src/app/core/services/user-setting.service';
 
 @Component({
   selector: 'app-messages',
@@ -15,26 +21,35 @@ import { TokenService } from 'src/app/core/services/token.service';
 })
 
 export class MessagesComponent {
+  isMobile: boolean = false;
+  @ViewChild('messageContainer') messageContainerElement: any;
+
   messageRooms: MessageRoom[] = []; // Array of message rooms to display in the sidebar.
   currentUser!: User; // Current user logged in.
   
   isDialogVisible: boolean = false;
-  selectedUserMembers: User[] = []; // Array of selected user members to create a message room.
+  selectedUserMembers: UserSearch[] = []; // Array of selected user members to create a message room.
 
   selectedMessageRoom!: MessageRoom; // Selected message room to display the messages content.
   
   MessageContentTypeEnum = MessageContentTypeEnum;
 
   subscriptionMessageContentsMap: Map<string, any> = new Map(); // Map of subscriptions to the message contents observable
-  
+  private routerSubscription: Subscription = new Subscription();
+
   constructor(
     private messageRoomService: MessageRoomService,
     private tokenService: TokenService,
     private router: Router,
     private messageRoomMemberService: MessageRoomMemberService,
     private messageContentService: MessageContentService,
-    private cdr: ChangeDetectorRef
-  ) { }
+    private toastService: ToastService,
+    private translateService: TranslateService,
+    private userSettingService: UserSettingService,
+    private loadingService: LoadingService
+  ) { 
+    this.isMobile = window.innerWidth < 768;
+  }
   
 
   ngOnInit() {
@@ -53,6 +68,19 @@ export class MessagesComponent {
 
     this.messageRoomService.connectWebSocketFirstMessage();
     this.getMessageRoomsFirstMessageObservable();
+
+    // when change route, reset the selected message room
+    this.routerSubscription = this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe({
+      next: (event) => {
+        if(this.router.url.includes('/messages/inbox')) return;
+        this.selectedMessageRoom = {} as MessageRoom;
+      },
+      error: (error) => {
+        console.log(error);
+      }
+    });
   }
 
 
@@ -83,17 +111,19 @@ export class MessagesComponent {
       else {
         room = {...room, lastMessage: messageContent, unSeenCount: room.unSeenCount ? room.unSeenCount + 1 : 1};
       }
+      
       // Remove the room from its current position
       this.messageRooms.splice(roomIndex, 1);
       // Unshift the room to the beginning of the array
       this.messageRooms.unshift(room);
+
+      this.checkUnSeenCount(this.messageRooms);
     }
   }
 
 
   /**
-   * Get the new message group observable.
-   * This observable will emit new message room whenever a new message room is received.
+   * When a new message room is created.
    * This is used if the room is group chat.
    * It will add the new message room to the message rooms array, connect and subscribe to the message room.
    */
@@ -101,7 +131,7 @@ export class MessagesComponent {
     this.messageRoomService.getNewMessageGroupObservable().subscribe({
       next: (messageRoom) => {
         if(!messageRoom.id) return; 
-        if(messageRoom.createdBy == this.currentUser.id) {
+        if(messageRoom.createdBy !== this.currentUser.id) {
           // when a new message room is created, add it to the message rooms array
           this.messageRooms = [messageRoom, ...this.messageRooms];
         }
@@ -116,8 +146,7 @@ export class MessagesComponent {
 
 
   /**
-   * Get the message rooms observable for the first message.
-   * This observable will emit new message room whenever the first message is received.
+   * When receiving the first message content of a new message room.
    * This is used if the room is a direct message between two users.
    * You can use this method as an alternative to getNewMessageGroupObservable() for direct messages.
    * It will add the new message room to the message rooms array, connect and subscribe to the message room.
@@ -128,7 +157,7 @@ export class MessagesComponent {
         if(!messageRoom.id) return;
         if(messageRoom.createdBy != this.currentUser.id) {
           if(!messageRoom.group) {
-            messageRoom.avatarURL = messageRoom.members?.filter((member: any) => member.userId != this.currentUser.id)[0].userId;
+            messageRoom.avatarURL = messageRoom.createdBy; // update avatar is the created by user id
             this.messageRooms = [messageRoom, ...this.messageRooms];
           }
         }
@@ -150,6 +179,7 @@ export class MessagesComponent {
       next: (messageRooms) => {
         this.messageRooms = messageRooms;
         this.connectAndSubscribeToMessageRooms();
+        this.checkUnSeenCount(this.messageRooms);
         // Get the selected message room from the URL in case of page refresh.
         const roomId = this.router.url.split('/')[3];
         if(roomId) {
@@ -165,11 +195,26 @@ export class MessagesComponent {
             this.messageRoomService.getMessageRoomById(roomId).subscribe({
               next: (room) => {
                 if(room.id) {
-                  this.selectMessageRoom(room);
+                  this.userSettingService.checkWhoCanSendYouNewMessage(room.id).subscribe({
+                    next: (result) => {
+                      if(result) {
+                        this.selectMessageRoom(room);
+                      }
+                      else {
+                        this.router.navigate(['/messages']);
+                      }
+                    },
+                    error: (error) => {
+                      console.log(error);
+                    }
+                  });
                 }
               },
               error: (error) => {
                 console.log(error);
+                if(error.status === 404) {
+                  this.router.navigate(['/not-found']);
+                }
               }
             });
           }
@@ -232,13 +277,21 @@ export class MessagesComponent {
     this.updateLastSeenMessage(this.selectedMessageRoom);
 
     this.selectedMessageRoom = {...messageRoom};
+    this.selectedMessageRoom = this.selectedMessageRoom;
+    console.log(this.selectedMessageRoom);
+    
     // Reset the unSeenCount to 0 when the message room is selected.
     const index = this.messageRooms.findIndex(room => room.id === this.selectedMessageRoom.id);
     if(index !== -1) {
       this.messageRooms[index].unSeenCount = 0;
+      this.checkUnSeenCount(this.messageRooms);
     }
     
     this.updateLastSeenMessage(messageRoom);
+
+    if(this.isMobile) {
+      this.scrollToBehavior('right');
+    }
   }
 
 
@@ -268,10 +321,12 @@ export class MessagesComponent {
   /**
    * Check and create a new message room with selected user members.
    */
-  chat(event: User[]) {
+  chat(event: UserSearch[]) {
     this.selectedUserMembers = event;
 
     if(this.selectedUserMembers.length <= 0) return;
+
+    this.loadingService.show();
     
     // extract list of id inside selectedUserMembers: User here
     const userIds = this.selectedUserMembers.map((user: any) => user.id);
@@ -285,25 +340,35 @@ export class MessagesComponent {
           this.isDialogVisible = false;
           this.navigateToMessageRoom(existsMessageRoom);
           this.selectedUserMembers = [];
+          this.loadingService.hide();
         }
         else {
           // if not exists, create a new room
           this.messageRoomService.createMessageRoomWithUsers(userIds).subscribe({
             next: (messageRoom) => {
+              // update the avatarURL of the message room if the room is a direct message between two users
+              if(userIds.length === 2) messageRoom.avatarURL = userIds.filter((id: string) => id !== this.currentUser.id)[0];
               this.messageRooms = [messageRoom, ...this.messageRooms];
               this.selectMessageRoom(messageRoom);
               this.isDialogVisible = false;
               this.navigateToMessageRoom(messageRoom);
               this.selectedUserMembers = [];
+              this.loadingService.hide();
             },
             error: (error) => {
               console.log(error);
+              this.loadingService.hide();
+              this.toastService.showError(
+                this.translateService.instant('common.error'),
+                error.error.message
+              )
             }
           });
         }
       },
       error: (error) => {
         console.log(error);
+        this.loadingService.hide();
       }
     });
   }
@@ -323,7 +388,7 @@ export class MessagesComponent {
         if(!receiveId || !this.selectedMessageRoom.id) return;
         this.messageRoomService.sendFirstMessage(receiveId, this.selectedMessageRoom.id).subscribe({
           next: (result) => {
-            console.log(result);
+            // console.log(result);
           },
           error: (error) => {
             console.log(error);
@@ -358,6 +423,34 @@ export class MessagesComponent {
       }
       return room;
     });
+  }
+
+
+  backToMessageRoomListEvent(event: any) {
+    this.scrollToBehavior('left');
+    this.selectedMessageRoom = {} as MessageRoom;
+    this.router.navigate(['/messages']);
+  }
+
+
+  scrollToBehavior(direction: 'left' | 'right') {
+    if(direction === 'left') {
+      this.messageContainerElement.nativeElement.scrollLeft -= this.messageContainerElement.nativeElement.scrollWidth;
+    }
+    else {
+      this.messageContainerElement.nativeElement.scrollLeft += this.messageContainerElement.nativeElement.scrollWidth;
+    }
+  }
+
+
+  checkUnSeenCount(messageRooms: MessageRoom[]) {
+    let isHaveUnseen = messageRooms.some(room => (room.unSeenCount ?? 0) > 0);
+    if(isHaveUnseen) {
+      document.getElementById('MessagesButton')?.classList.add('has-unseen-messages');
+    }
+    else {
+      document.getElementById('MessagesButton')?.classList.remove('has-unseen-messages');
+    }
   }
 
 }

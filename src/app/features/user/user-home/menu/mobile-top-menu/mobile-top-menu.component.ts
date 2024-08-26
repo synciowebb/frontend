@@ -1,0 +1,171 @@
+import { Component, ViewChild } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
+import { LangService } from 'src/app/core/services/lang.service';
+import { CreatePostComponent } from '../../create-post/create-post.component';
+import { TokenService } from 'src/app/core/services/token.service';
+import { UserService } from 'src/app/core/services/user.service';
+import { RedirectService } from 'src/app/core/services/redirect.service';
+import { ThemeService } from 'src/app/core/services/theme.service';
+import { LoginDialogService } from 'src/app/core/services/login-dialog.service';
+import { Router } from '@angular/router';
+
+@Component({
+  selector: 'app-mobile-top-menu',
+  templateUrl: './mobile-top-menu.component.html',
+  styleUrls: ['./mobile-top-menu.component.scss']
+})
+
+export class MobileTopMenuComponent {
+  @ViewChild(CreatePostComponent) createPostComponent: any;
+  currentUserId: string = '';
+
+  currentTheme: string = this.themeService.getCurrentTheme();
+
+  /** Indicates if the report a problem dialog is visible */
+  isVisibleReportAProblem: boolean = false;
+  
+  settingSubmenuItems: any[] = [
+    {
+      icon: 'pi pi-cog',
+      items: [
+        {
+          label: this.currentTheme === 'theme-light' ? 'Dark mode' : 'Light mode',
+          icon: 'pi ' + (this.currentTheme === 'theme-light' ? 'pi-moon' : 'pi-sun'),
+          command: () => {
+            this.themeService.switchTheme(this.currentTheme === 'theme-light' ? 'theme-dark' : 'theme-light');
+            this.updateTheme()
+          },
+        },
+        {
+          label: this.langService.getLang() === 'en' ? 'Tiếng Việt' : 'English',
+          icon: 'pi pi-globe',
+          command: () => {
+            const lang = this.langService.getLang() === 'en' ? 'vi' : 'en';
+            this.langService.setLang(lang);
+            this.redirectService.reloadPage();
+          },
+        },
+        {
+          label: this.translateService.instant('mobile_top_menu.help'),
+          icon: 'pi pi-question-circle',
+          route: '/help',
+        },
+        {
+          label: this.translateService.instant('mobile_top_menu.report_a_problem'),
+          icon: 'pi pi-flag',
+          command: () => {
+            if(!this.currentUserId) {
+              this.loginDialogService.show();
+              return;
+            }
+            this.isVisibleReportAProblem = true;
+          },
+        },
+        {
+          label: this.translateService.instant('mobile_top_menu.about_us'),
+          icon: 'pi pi-info-circle',
+          route: '/about',
+        }
+      ],
+    },
+  ];
+
+  createSubmenuItems = [
+    {
+      icon: 'pi pi-pen-to-square',
+      items: [
+        {
+          label: this.translateService.instant('mobile_top_menu.post'),
+          icon: 'pi pi-table',
+          command: () => {
+            this.onCreateClick();
+          },
+        },
+        {
+          label: this.translateService.instant('mobile_top_menu.story'),
+          icon: 'pi pi-history',
+          command: () => {
+            this.onCreateStoryClick();
+          },
+        },
+      ],
+    },
+  ];
+
+  constructor(
+    private langService: LangService,
+    private translateService: TranslateService,
+    private tokenService: TokenService,
+    private userService: UserService,
+    public redirectService: RedirectService,
+    private themeService: ThemeService,
+    private loginDialogService: LoginDialogService,
+    private router: Router
+  ) { }
+
+
+  ngOnInit(): void {
+    this.currentUserId = this.tokenService.extractUserIdFromToken();
+
+    if(this.currentUserId) {
+      this.settingSubmenuItems[0].items.push({
+        label: this.translateService.instant('mobile_top_menu.logout'),
+        color: 'red',
+        icon: 'pi pi-sign-out',
+        command: () => {
+          this.logout();
+        },
+      });
+    }
+  }
+
+
+  updateTheme() {
+    this.currentTheme = this.themeService.getCurrentTheme();
+    this.settingSubmenuItems[0].items[0] = {
+      label: this.currentTheme === 'theme-light' ? 'Dark mode' : 'Light mode',
+      icon: 'pi ' + (this.currentTheme === 'theme-light' ? 'pi-moon' : 'pi-sun'),
+      command: () => {
+        this.themeService.switchTheme(this.currentTheme === 'theme-light' ? 'theme-dark' : 'theme-light');
+        this.updateTheme()
+      },
+    }
+    this.settingSubmenuItems = [...this.settingSubmenuItems];
+  }
+
+
+  onCreateClick() {
+    if(!this.currentUserId) {
+      this.loginDialogService.show();
+      return;
+    }
+    else this.createPostComponent.showDialog();
+  }
+
+
+  onCreateStoryClick() {
+    if(!this.currentUserId) {
+      this.loginDialogService.show();
+      return;
+    }
+    else this.router.navigate(['/story/create']);
+  }
+
+
+  logout(): void {
+    this.userService.logout().subscribe({
+      next: () => {
+        this.userService.removeUserFromLocalStorage();
+        this.tokenService.removeToken();
+        this.redirectService.redirectAndReload('/login');
+      },
+      error: (error) => {
+        console.log(JSON.stringify(error));
+        this.userService.removeUserFromLocalStorage();
+        this.tokenService.removeToken();
+        this.redirectService.redirectAndReload('/login');
+      }
+    });
+  }
+
+}

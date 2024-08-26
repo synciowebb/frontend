@@ -1,5 +1,4 @@
 .wrapper {
-  background-image: url('/assets/images/signup-background.png');
   min-height: 100vh;
   min-width: 100vw;
   display: flex;
@@ -8,9 +7,24 @@
 }
 
 .form {
-  border-radius: 8px;
-  min-height: 480px;
-  min-width: 768px;
+    min-height: 480px;
+}
+
+.form form {
+    border-radius: 8px;
+    background-color: var(--surface-0);
+    padding: 1rem 2rem;
+}
+
+@media screen and (min-width: 576px) {
+    .form {
+        min-width: 768px;
+    }
+
+    .form form {
+        border-radius: 8px 0 0 8px;
+        padding: 2rem 4rem !important;
+    }
 }
 
 .form input {
@@ -27,10 +41,6 @@
 
 .form input:focus {
   border-color: #0095f6;
-}
-
-.form form {
-  padding: 2rem 4rem;
 }
 
 .overlay {

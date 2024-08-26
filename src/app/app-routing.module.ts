@@ -9,7 +9,6 @@ import { ToastModule } from 'primeng/toast';
 import { DialogModule } from 'primeng/dialog';
 import { ChangePasswordComponent } from './features/authentication/changepassword/changepassword.component';
 import { AdminComponent } from './features/admin/admin.component';
-import { ProfileFormComponent } from './features/user/user-home/profile-form/profile-form.component';
 import { SearchComponent } from './features/user/user-home/search/search.component';
 import { PrimengModule } from './primeng/primeng.module';
 import { RegisterComponent } from './features/authentication/register/register.component';
@@ -18,23 +17,15 @@ import { RoleEnum } from './core/interfaces/user';
 import { NotFoundComponent } from './shared/components/not-found/not-found.component';
 import { NotAuthorizedComponent } from './shared/components/not-authorized/not-authorized.component';
 import { TranslateModule } from '@ngx-translate/core';
+import { SharedModule } from './shared/shared.module';
+import { UpdateIpComponent } from './shared/components/update-ip/update-ip.component';
+import { environment } from 'src/environments/environment';
+import { AuthEmailComponent } from './features/authentication/authEmail/auth-email.component';
 
-@NgModule({
-  declarations: [ProfileFormComponent],
-  imports: [
-    // other modules
-    ToastModule,
-    DialogModule,
-    FormsModule,
-    ReactiveFormsModule,
-  ],
-  // providers, bootstrap, etc.
-})
-export class YourModule {}
 const routes: Routes = [
   {
     path: '',
-    title: 'Syncio',
+    title: 'Syncio Social Media',
     loadChildren: () =>
       import('./features/user/user.module').then((m) => m.UserModule),
   },
@@ -45,51 +36,54 @@ const routes: Routes = [
     loadChildren: () =>
       import('./features/admin/admin.module').then((m) => m.AdminModule),
     canActivate: [authGuard],
-    data: { requiredRoles: [RoleEnum.ADMIN] }
+    data: { requiredRoles: [RoleEnum.ADMIN] },
   },
   {
     path: 'login',
-    title: 'Login',
+    title: 'Login | Syncio',
     component: LoginComponent,
   },
   {
     path: 'register',
-    title: 'Register',
+    title: 'Register | Syncio',
     component: RegisterComponent,
   },
   {
+    path: 'auth-email',
+    title: 'Auth Email | Syncio',
+    component: AuthEmailComponent,
+  },
+  {
     path: 'forgot_password',
-    title: 'forgot',
+    title: 'Forgot Password | Syncio',
     component: ForgotpasswordComponent,
   },
   {
     path: 'reset_password',
-    title: 'reset_password',
+    title: 'Change Password | Syncio',
     component: ChangePasswordComponent,
   },
   {
     path: 'confirm-user-register',
-    title: 'confirm-user-register',
+    title: 'Confirm User Register | Syncio',
     component: LoginComponent,
-  },
-  {
-    path: 'edit-profile',
-    title: 'edit-profile',
-    component: ProfileFormComponent,
-    canActivate: [authGuard],
-    data: { requiredRoles: [RoleEnum.USER] }
   },
   { path: 'search', component: SearchComponent },
   {
-    path: "not-found",
-    title: "Not Found",
-    component: NotFoundComponent
+    path: 'not-found',
+    title: 'Not Found | Syncio',
+    component: NotFoundComponent,
   },
   {
-    path: "not-authorized",
-    title: "Not Authorized",
-    component: NotAuthorizedComponent
-  }
+    path: 'not-authorized',
+    title: 'Not Authorized | Syncio',
+    component: NotAuthorizedComponent,
+  },
+  {
+    path: 'update-ip',
+    title: 'Update IP',
+    component: UpdateIpComponent,
+  },
 ];
 
 @NgModule({
@@ -97,17 +91,22 @@ const routes: Routes = [
     LoginComponent,
     ForgotpasswordComponent,
     ChangePasswordComponent,
-    RegisterComponent
+    RegisterComponent,
+    AuthEmailComponent,
   ],
   imports: [
     FormsModule,
     CommonModule,
     BrowserModule,
-    RouterModule.forRoot(routes),
+    RouterModule.forRoot(routes, {
+      useHash: environment.windows ? true : false,
+    }), // useHash(#) for Windows app
     ToastModule,
     DialogModule,
     PrimengModule,
-    TranslateModule
+    TranslateModule,
+    ReactiveFormsModule,
+    SharedModule,
   ],
   exports: [RouterModule],
 })

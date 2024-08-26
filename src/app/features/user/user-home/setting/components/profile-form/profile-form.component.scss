@@ -1,0 +1,42 @@
+form {
+  width: 100%;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+input, textarea {
+  width: 100%;
+  display: block;
+  border-radius: 8px;
+  border: 1px solid var(--gray-300);
+  padding: 0.75rem;
+  font-size: 1rem;
+  font-family: "Inter var", sans-serif;
+}
+
+input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+p-dialog ::ng-deep {
+  .p-dialog-header,
+  .p-dialog-content {
+    padding: 0.75rem 1rem 1rem 0.75rem;
+    color: var(--surface-0);
+    background-color: var(--primary-color);
+  }
+
+  .p-dialog-content {
+    padding-bottom: 2rem;
+  }
+
+  .p-dialog .p-dialog-header .p-dialog-header-icon {
+    color: var(--surface-0);
+  }
+}

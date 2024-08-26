@@ -1,6 +1,6 @@
 <!-- Unseen message section -->
 <div *ngIf="isLastSeen && messageRoom.unSeenCount > 0" class="text-center text-gray-500 my-3" id="unSeenMessage">
-  __________ Unseen messages ({{messageRoom.unSeenCount}}) __________
+  __________ {{'message_item.unseen_messages' | translate}} ({{messageRoom.unSeenCount}}) __________
 </div>
 
 <!-- Message item not notification -->
@@ -9,7 +9,7 @@
   [ngClass]="{'my-message': isCurrentUser()}"
   [id]="messageContent.id" class="message-content-item">
   <!-- Avatar -->
-  <app-avatar *ngIf="messageContent.user.id != currentUser?.id" [userId]="messageContent.user.id" [width]="32"></app-avatar>
+  <app-avatar *ngIf="messageContent.user && messageContent.user.id != currentUser?.id" [userId]="messageContent.user.id" [width]="32"></app-avatar>
   <div class="flex flex-column w-full" [style.align-items]="isCurrentUser() ? 'flex-end' : 'flex-start'">
     <!-- Username (with reply) -->
     <small *ngIf="shouldShowUsername()" class="block text-xs text-gray-600" style="margin-left: 6px;">
@@ -39,34 +39,34 @@
   [title]="messageContent.dateSent | dateAgoPipe: 'h'" 
   [ngSwitch]="messageContent.type">
   <small class="block w-full my-1 text-center text-gray-600 font-semibold">
-    {{messageContent.user?.username == currentUser.username ? 'You' : messageContent.user?.username }}
+    {{messageContent.user?.username == currentUser.username ? ('message_item.you' | translate) : messageContent.user?.username }}
     <!-- CREATE_ROOM -->
     <ng-container *ngSwitchCase="MessageContentTypeEnum.NOTIFICATION_CREATE_ROOM">
-      create this group.
+      {{'message_item.create_this_group' | translate}}.
     </ng-container>
     <!-- CHANGE_NAME -->
     <ng-container *ngSwitchCase="MessageContentTypeEnum.NOTIFICATION_CHANGE_NAME">
-      named the group {{messageContent.message}}.
+      {{'message_item.named_the_group' | translate}} {{messageContent.message}}.
     </ng-container>
     <!-- ADD_MEMBER -->
     <ng-container *ngSwitchCase="MessageContentTypeEnum.NOTIFICATION_ADD_MEMBER">
-      added {{ membersAddedAsString }} to the group.
+      {{'message_item.added' | translate}} {{ membersAddedAsString }} {{'message_item.to_the_group' | translate}}.
     </ng-container>
     <!-- REMOVE_MEMBER -->
     <ng-container *ngSwitchCase="MessageContentTypeEnum.NOTIFICATION_REMOVE_MEMBER">
-      removed {{ messageContent.message == currentUser.id ? 'You' : messageContent.message | userIdToName | async }} from the group.
+      {{'message_item.removed' | translate}} {{ messageContent.message == currentUser.id ? 'You' : messageContent.message | userIdToName | async }} {{'message_item.from_the_group' | translate}}.
     </ng-container>
     <!-- LEAVE_ROOM -->
     <ng-container *ngSwitchCase="MessageContentTypeEnum.NOTIFICATION_LEAVE_ROOM">
-      left the group.
+      {{'message_item.left_the_group' | translate}}.
     </ng-container>
     <!-- MAKE_ADMIN -->
     <ng-container *ngSwitchCase="MessageContentTypeEnum.NOTIFICATION_MAKE_ADMIN">
-      added {{ messageContent.message == currentUser.id ? 'You' : messageContent.message | userIdToName | async }} as a group admin.
+      {{'message_item.added' | translate}} {{ messageContent.message == currentUser.id ? 'You' : messageContent.message | userIdToName | async }} {{'message_item.as_a_group_admin' | translate}}.
     </ng-container>
     <!-- REMOVE_ADMIN -->
     <ng-container *ngSwitchCase="MessageContentTypeEnum.NOTIFICATION_REMOVE_ADMIN">
-      removed {{ messageContent.message == currentUser.id ? 'You' : messageContent.message | userIdToName | async }} as a group admin.
+      {{'message_item.removed' | translate}} {{ messageContent.message == currentUser.id ? 'You' : messageContent.message | userIdToName | async }} {{'message_item.as_a_group_admin' | translate}}.
     </ng-container>
   </small>
 </div>

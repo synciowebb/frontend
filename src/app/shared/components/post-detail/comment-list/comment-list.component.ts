@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { ActivatedRoute, Params } from '@angular/router';
+import { ActivatedRoute, Params, Router } from '@angular/router';
+import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { Comment } from 'src/app/core/interfaces/comment';
 import { ActionEnum } from 'src/app/core/interfaces/notification';
@@ -34,7 +35,9 @@ export class CommentListComponent {
     private commentService: CommentService,
     private activatedRoute: ActivatedRoute,
     private notificationService: NotificationService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private translateService: TranslateService,
+    private router: Router
   ) { 
     this.subscribeToQueryParams();
   }
@@ -197,12 +200,14 @@ export class CommentListComponent {
   }
 
   /**
+   * When receiving a new comment of other users, 
+   * the comment of the current user will be appended to comments array immediately by using next() method of the observable.
    * Subscribe to the comments observable to get the Comment object in real-time.
    */
   getCommentsObservable() {
     this.subscriptionComments = this.commentService.getCommentsObservable().subscribe({
       next: (comment) => {
-        this.comments.unshift({ ...comment, createdDate: 'Just now' });
+        this.comments.unshift({ ...comment, createdDate: this.translateService.instant('date_time.just_now') });
         // send notification to owner of the post
         // need to place here because we need to get the comment id, 
         // and the comment id is generated in the backend, 
@@ -315,6 +320,21 @@ export class CommentListComponent {
    */
   onReply(commentId: string, ownerParentCommentId: string) {
     this.onReplyEvent.emit({ commentId: commentId, ownerParentCommentId: ownerParentCommentId});
+  }
+
+
+  /**
+   * Handle the click event on the post caption.
+   * @param event 
+   */
+  handleClick(event: MouseEvent) {
+    // Check if the click event target is a .profile-link element
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'A' && target.getAttribute('data-link')) {
+      event.preventDefault();
+      const profileUrl = target.getAttribute('data-link');
+      this.router.navigate([profileUrl]);
+    }
   }
 
 }

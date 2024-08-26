@@ -15,7 +15,7 @@ export class MessageRoomService {
 
   private apiURL = environment.apiUrl + 'api/v1/messagerooms';
 
-  private webSocketURL = environment.apiUrl + 'live'; // WebSocket URL with 'live' is the endpoint for the WebSocket configuration in the backend. In WebSocketConfig.java, the endpoint is '/live'.
+  private webSocketURL = environment.apiUrl + 'api/live'; // WebSocket URL with 'api/live' is the endpoint for the WebSocket configuration in the backend. In WebSocketConfig.java, the endpoint is '/api/live'.
   
   /**
    * WebSocket client for new message group.
@@ -43,12 +43,16 @@ export class MessageRoomService {
   /**
    * Subscription for first message.
    */
-  private subscriptionFirstMessage: any
+  private subscriptionFirstMessage: any;
 
   constructor(
     private http: HttpClient,
     private tokenService: TokenService
-  ) {}
+  ) { 
+    if (environment.android || environment.windows) {
+      this.webSocketURL = this.webSocketURL.replace(environment.apiUrl, window.localStorage.getItem('apiUrl') || environment.apiUrl);
+    }
+  }
 
 
   connectWebSocketNewMessageGroup() {
@@ -56,9 +60,12 @@ export class MessageRoomService {
     this.stompClientNewMessageGroup = Stomp.over(socket);
 
     this.stompClientNewMessageGroup.connect({id: this.tokenService.extractUserIdFromToken()}, () => {    
-      this.newMessageGroupSubscription = this.stompClientNewMessageGroup.subscribe(`/user/queue/newMessageRoom`, (comment: IMessage) => {
-        this.newMessageGroupSubject.next(JSON.parse(comment.body));
-      });
+      this.newMessageGroupSubscription = this.stompClientNewMessageGroup.subscribe(`/user/queue/newMessageRoom`, (messageContent: IMessage) => {
+        this.newMessageGroupSubject.next(JSON.parse(messageContent.body));
+      }),
+      (error: any) => {
+        console.error(error);
+      }
     });
   }
 

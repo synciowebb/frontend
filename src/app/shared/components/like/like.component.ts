@@ -1,10 +1,10 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ActionEnum } from 'src/app/core/interfaces/notification';
 import { CommentService } from 'src/app/core/services/comment.service';
 import { LikeService } from 'src/app/core/services/like.service';
+import { LoginDialogService } from 'src/app/core/services/login-dialog.service';
 import { NotificationService } from 'src/app/core/services/notification.service';
-import { TokenService } from 'src/app/core/services/token.service';
+import { RedirectService } from 'src/app/core/services/redirect.service';
 import { UserService } from 'src/app/core/services/user.service';
 import { UserResponse } from 'src/app/features/authentication/login/user.response';
 
@@ -13,6 +13,7 @@ import { UserResponse } from 'src/app/features/authentication/login/user.respons
   templateUrl: './like.component.html',
   styleUrls: ['./like.component.scss'],
 })
+
 export class LikeComponent {
   @Input() postId!: string;
   @Input() createdBy!: string; // The id of the user who created the post
@@ -30,6 +31,8 @@ export class LikeComponent {
     private commentService: CommentService,
     private userService: UserService,
     private notificationService: NotificationService,
+    private redirectService: RedirectService,
+    private loginDialogService: LoginDialogService,
   ) {}
 
   ngOnInit() {
@@ -45,12 +48,17 @@ export class LikeComponent {
   }
 
   likePost() {
-    console.log('likePost');
+    //not logged in
+    if(!this.userResponse?.id) {
+      this.loginDialogService.show();
+      return;
+    }
+
+    this.isLiked = !this.isLiked;
+    this.likeCount = this.isLiked ? this.likeCount + 1 : this.likeCount - 1;
+
     this.likeService.toggleLikes(this.postId, this.userResponse?.id).subscribe({
       next: () => {
-        this.isLiked = !this.isLiked;
-        this.countLikes();
-
         // send notification
         if (this.createdBy != this.userResponse?.id && this.isLiked) {
           this.notificationService.sendNotification({
@@ -62,7 +70,11 @@ export class LikeComponent {
           });
         }
       },
-      error: (error: any) => {},
+      error: (error: any) => {
+        this.isLiked = !this.isLiked;
+        this.likeCount = this.isLiked ? this.likeCount - 1 : this.likeCount + 1;
+        console.error('Error liking post:', error);
+      },
     });
   }
 
@@ -100,7 +112,9 @@ export class LikeComponent {
       next: (count) => {
         this.commentCount = count;
       },
-      error: (error) => {},
+      error: (error) => {
+        console.error('Error counting comments:', error);
+      },
     });
   }
 }

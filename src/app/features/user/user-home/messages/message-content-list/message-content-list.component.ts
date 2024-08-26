@@ -1,5 +1,7 @@
 import { Component, ElementRef, EventEmitter, Input, Output, SimpleChange, SimpleChanges, ViewChild } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
 import { ContextMenu } from 'primeng/contextmenu';
+import { Editor } from 'primeng/editor';
 import { Subscription } from 'rxjs';
 import { MessageContent, MessageContentTypeEnum } from 'src/app/core/interfaces/message-content';
 import { MessageRoom } from 'src/app/core/interfaces/message-room';
@@ -7,6 +9,7 @@ import { Sticker } from 'src/app/core/interfaces/sticker';
 import { User } from 'src/app/core/interfaces/user';
 import { MessageContentService } from 'src/app/core/services/message-content.service';
 import { MessageRoomMemberService } from 'src/app/core/services/message-room-member.service';
+import { UserService } from 'src/app/core/services/user.service';
 
 @Component({
   selector: 'app-message-content-list',
@@ -15,6 +18,10 @@ import { MessageRoomMemberService } from 'src/app/core/services/message-room-mem
 })
 
 export class MessageContentListComponent {
+  @Input() isMobile: boolean = false; // Flag to indicate if the device is mobile
+  @Output() backToMessageRoomListEvent = new EventEmitter<void>(); // Event emitter to close the message room
+  @ViewChild('container') containerElement!: ElementRef;
+  
   @Input() messageRoom: MessageRoom = {}; // current message room
   @Input() currentUser!: User; // Current user logged in.
   @Output() sendFirstMessageEvent = new EventEmitter<void>();
@@ -33,7 +40,7 @@ export class MessageContentListComponent {
   replyingTo: MessageContent = {}; // Message content to reply to
   contextMenuItems: any[] = [
     {
-      label: 'Reply',
+      label: this.translateService.instant('message_content_list.reply'),
       icon: 'pi pi-reply',
       command: () => {
         this.messageContent.replyTo = {...this.replyingTo};
@@ -58,9 +65,17 @@ export class MessageContentListComponent {
   /** Reference to the end of the feed element. */
   @ViewChild('unseen') unseenElement: any;
 
+  showLoading: boolean = false;
+
+  @ViewChild('editor') editor: Editor | undefined;
+
+  isAvailableRoom: boolean = false;
+
   constructor(
     private messageContentService: MessageContentService,
     private messageRoomMemberService: MessageRoomMemberService,
+    private translateService: TranslateService,
+    private userService: UserService,
   ) { }
 
 
@@ -112,6 +127,9 @@ export class MessageContentListComponent {
    */
   getMessageContent() {
     if(!this.messageRoom.id) return;
+
+    this.showLoading = true;
+
     this.messageContentService.getMessageContentByRoomId(this.messageRoom.id).subscribe({
       next: (messageContents) => {
         this.messageContents = messageContents;
@@ -126,6 +144,7 @@ export class MessageContentListComponent {
         setTimeout(() => {
           this.scrollToBottom();
         }, 50);
+        this.showLoading = false;
       },
       error: (error) => {
         console.log(error);
@@ -145,6 +164,20 @@ export class MessageContentListComponent {
           ...this.messageRoom,
           members: messageRoomMembers
         };
+        // if not group check status of the other user
+        if(this.messageRoom.group) {
+          this.isAvailableRoom = true;
+        }
+        else {
+          this.userService.checkUserStatusById(this.getMemberNotMe()).subscribe({
+            next: (response) => {
+              this.isAvailableRoom = response.status === 'ACTIVE';
+            },
+            error: (error) => {
+              console.log(error);
+            }
+          });
+        }
       },
       error: (error) => {
         console.log(error);
@@ -161,6 +194,7 @@ export class MessageContentListComponent {
     this.subscriptionMessageContents.unsubscribe();
     this.subscriptionMessageContents = this.messageContentService.getMessageContentsObservable(this.messageRoom.id).subscribe({
       next: (messageContent) => {
+        messageContent.dateSent = new Date().toISOString();
         if(Object.keys(messageContent).length > 0) {
           // append the new message content to the message contents array
           this.messageContents = [...this.messageContents, messageContent];
@@ -177,9 +211,22 @@ export class MessageContentListComponent {
 
   
   addEmoji(event: any) {
-    this.messageContent.message = `${this.messageContent.message || ''}${event.emoji.native}`;
-    // Update the plain comment with the emoji.
-    this.plainComment = event.emoji.native;
+    const emoji = event.emoji.native;
+    const editor = this.editor as any; // Assuming you have a reference to the p-editor component
+  
+    if (editor) {
+      const quill = editor.getQuill();
+      
+      // Get the length of the current content
+      const contentLength = quill.getLength();
+      
+      // Insert emoji at the very end of the content
+      quill.insertText(contentLength - 1, emoji);
+  
+      // Update the message content and plain comment
+      this.messageContent.message = quill.root.innerHTML;
+      this.plainComment = quill.root.innerText;
+    }
   }
   
   /**
@@ -198,7 +245,8 @@ export class MessageContentListComponent {
   sendMessage(type: MessageContentTypeEnum) {
     if(type === 'TEXT' && this.plainComment.trim() === '') return;
 
-    let date = new Date();
+    this.isEmojiPickerVisible = false;
+
     this.messageContent = {
       ...this.messageContent,
       user: {
@@ -206,7 +254,6 @@ export class MessageContentListComponent {
         username: this.currentUser.username,
       },
       messageRoomId: this.messageRoom.id,
-      dateSent: new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString(),
       type: type,
     };
 
@@ -258,6 +305,8 @@ export class MessageContentListComponent {
    * @param event The event object containing the selected photos.
    */
   sendPhotos(event: any) {
+    this.isEmojiPickerVisible = false;
+    
     const selectedPhotos = Array.from(event.files);
 
     const formData = new FormData();
@@ -299,6 +348,9 @@ export class MessageContentListComponent {
    */
   showDetails() {
     this.isShowDetails = !this.isShowDetails;
+    if(this.isMobile) {
+      this.scrollToBehavior('right');
+    }
   }
 
 
@@ -332,6 +384,30 @@ export class MessageContentListComponent {
   getMemberNotMe(): string {
     if(this.messageRoom.group) return '';
     return this.messageRoom.members?.find(member => member.userId !== this.currentUser.id)?.userId || '';
+  }
+
+
+  /**
+   * When device is mobile and click back to message room list
+   */
+  backToMessageRoomList() {
+    this.backToMessageRoomListEvent.emit();
+  }
+
+
+  backToMessageContentListEvent(event: any) {
+    this.scrollToBehavior('left');
+    this.isShowDetails = false;
+  }
+
+
+  scrollToBehavior(direction: 'left' | 'right') {
+    if(direction === 'left') {
+      this.containerElement.nativeElement.scrollLeft -= this.containerElement.nativeElement.scrollWidth;
+    }
+    else {
+      this.containerElement.nativeElement.scrollLeft += this.containerElement.nativeElement.scrollWidth;
+    }
   }
 
 }

@@ -1,5 +1,4 @@
 import { Component, OnInit } from '@angular/core';
-import { MenuItem } from 'primeng/api';
 
 @Component({
   selector: 'app-help-center',
@@ -7,9 +6,14 @@ import { MenuItem } from 'primeng/api';
   styleUrls: ['./help-center.component.scss']
 })
 export class HelpCenterComponent implements OnInit {
+  isMobile = false;
   selectedMenuItem!: string;
   selectedSubMenuItem!: string;
   selectedSubSubMenuItem!: string;
+
+  constructor() {
+    this.isMobile = window.innerWidth < 768;
+  }
 
   ngOnInit() {
     // Initialize with default values if needed
@@ -19,8 +23,6 @@ export class HelpCenterComponent implements OnInit {
     this.selectedMenuItem = event.menuItem;
     this.selectedSubMenuItem = event.subMenuItem || '';
     this.selectedSubSubMenuItem = event.subSubMenuItem || '';
-
-    console.log('Selected sub sub menu item:', this.selectedSubSubMenuItem);
     
   }
 }

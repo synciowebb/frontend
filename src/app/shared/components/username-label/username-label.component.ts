@@ -1,13 +1,14 @@
-import { Component, OnInit, Input } from '@angular/core';
+import { Component, OnInit, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { UserLabelInfoService } from 'src/app/core/services/user-label-info.service';
 import { LabelUpdateService } from 'src/app/core/services/label-update.service';
+import { ImageUtils } from 'src/app/core/utils/image-utils';
 
 @Component({
   selector: 'app-username-label',
   templateUrl: './username-label.component.html',
   styleUrls: ['./username-label.component.scss']
 })
-export class UsernameLabelComponent implements OnInit {
+export class UsernameLabelComponent implements OnInit, OnChanges {
   @Input() userId: string | undefined;
   @Input() username: string | undefined;
   @Input() fontSize: string | undefined;
@@ -19,33 +20,37 @@ export class UsernameLabelComponent implements OnInit {
 
   constructor(
     private userLabelInfoService: UserLabelInfoService,
-    private labelUpdateService: LabelUpdateService
+    private labelUpdateService: LabelUpdateService,
+    public imageUtils: ImageUtils
   ) { }
 
   ngOnInit(): void {
-    if (this.userId){
-      this.id = this.userId;
-      this.userLabelInfoService.getLabelURL(this.userId).subscribe({
-        next: (resp) => {
-          if (resp) {
-            this.gifUrl = resp;
-          } else {
-            this.gifUrl = undefined; // gifUrl là undefined nếu resp là null
-          }
-        },
-        error: (error) => {
-          this.gifUrl = undefined; // gifUrl là undefined nếu có lỗi
-        }
-      });
+    this.labelUpdateService.currentGifUrl.subscribe(() => {
+      this.getUrlLabel();
+    });
+  }
 
-      this.labelUpdateService.currentGifUrl.subscribe((gifUrl) => {
-        if (gifUrl) {
-          this.gifUrl = gifUrl;
-        } else {
-          this.gifUrl = undefined;
-        }
-      });
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['userId'] && changes['userId'].currentValue) {
+      this.getUrlLabel();
     }
-    
+  }
+
+  getUrlLabel(){
+    if (!this.userId) {
+      console.warn('UserId is not provided or is null');
+      return; // Không thực hiện bất kỳ hành động nào nếu userId là null hoặc undefined
+    }
+
+    this.id = this.userId;
+    this.userLabelInfoService.getLabelURL(this.userId).subscribe({
+      next: (resp) => {
+        this.gifUrl = resp ? resp : undefined;
+      },
+      error: (error) => {
+        console.error('Error fetching label URL', error);
+        this.gifUrl = undefined; // gifUrl là undefined nếu có lỗi
+      }
+    });
   }
 }

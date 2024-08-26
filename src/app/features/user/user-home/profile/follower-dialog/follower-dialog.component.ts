@@ -19,7 +19,7 @@ export class FollowerDialogComponent {
     followerCount: 0,
     followingCount: 0,
     bio: '',
-    posts: [],
+    postCount: 0,
     isFollowing: false,
     isCloseFriend: false
   }; // user profile to show
@@ -103,7 +103,6 @@ export class FollowerDialogComponent {
           this.pageNumber++;
         }
         this.loading = false;
-        
       },
       error: (error) => {
         console.error('Error getting followers sorted by mutual follow', error);

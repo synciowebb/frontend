@@ -11,6 +11,10 @@ import { ToastService } from 'src/app/core/services/toast.service';
 import { BillingService } from 'src/app/core/services/billing.service';
 import { Billing } from 'src/app/core/interfaces/billing';
 import { SelectItem } from 'primeng/api';
+import { TranslateService } from '@ngx-translate/core';
+import { ImageUtils } from 'src/app/core/utils/image-utils';
+import { TokenService } from 'src/app/core/services/token.service';
+import { RedirectService } from 'src/app/core/services/redirect.service';
 
 @Component({
   selector: 'app-labels-shop',
@@ -35,38 +39,54 @@ export class LabelsShopComponent {
   sortField!: string;
   sortKey!: string;
 
+  filteredLabels: any[] = [];
+  searchTerm: string = '';
+
+  currentUserId: string = '';
+
   constructor(
     private labelService: LabelService,
     private userService: UserService,
     private toastService: ToastService,
     private paymentService: PaymentService,
-    private billingService: BillingService
+    private billingService: BillingService,
+    private translateService: TranslateService,
+    public imageUtils: ImageUtils,
+    private tokenService: TokenService,
+    private redirectService: RedirectService
   ) {}
 
   ngOnInit() {
-    if (this.user?.id) {
-      this.labelService.getLabelsWithPurchaseStatus(this.user?.id).subscribe({
-        next: (data) => {
-          console.log(data);
-          this.labels = data;
-          this.dateNow = Date.now();
-          this.labels.forEach(
-            (label) =>
-              (label.type = label.labelURL
-                ?.split('.')
-                .pop()
-                ?.toLocaleUpperCase())
-          );
-        },
-        error: (error) => {
-          console.error('Error fetching labels', error);
-        },
-      });
-    }
-    this.sortKey = 'price';
+    this.currentUserId = this.tokenService.extractUserIdFromToken();
+
+    this.labelService.getLabelsWithPurchaseStatus(this.currentUserId || null).subscribe({
+      next: (data) => {
+        this.labels = data;
+        this.filteredLabels = this.labels;
+        this.dateNow = Date.now();
+        this.labels.forEach(
+          (label) =>
+            (label.type = label.labelURL
+              ?.split('.')
+              .pop()
+              ?.toLocaleUpperCase())
+        );
+      },
+      error: (error) => {
+        console.error('Error fetching labels', error);
+      },
+    });
+
+    this.sortKey = '';
     this.sortOptions = [
-      { label: 'Price High to Low', value: '!price' },
-      { label: 'Price Low to High', value: 'price' },
+      { label: this.translateService.instant('labels_shop.price_high_to_low'), value: '!price' },
+      { label: this.translateService.instant('labels_shop.price_low_to_high'), value: 'price' },
+      { label: 'A-Z', value: 'name' },
+      { label: 'Z-A', value: '!name' },
+      { label: this.translateService.instant('labels_shop.have_owned'), value: '!purcharse' },
+      { label: this.translateService.instant('labels_shop.not_owned'), value: 'purcharse' },
+      { label: this.translateService.instant('labels_shop.high_quantity_sold'), value: '!quantitySold' },
+      { label: this.translateService.instant('labels_shop.low_quantity_sold'), value: 'quantitySold' }
     ];
   }
 
@@ -88,6 +108,10 @@ export class LabelsShopComponent {
   }
 
   buyNow(label: Label) {
+    if(!this.currentUserId) {
+      this.redirectService.needLogin();
+      return;
+    }
     this.submitted = true;
 
     if (label.id) {
@@ -113,6 +137,10 @@ export class LabelsShopComponent {
   }
 
   gift(label: Label) {
+    if(!this.currentUserId) {
+      this.redirectService.needLogin();
+      return;
+    }
     this.label = { ...label };
     this.labelDialog = true;
   }
@@ -153,6 +181,11 @@ export class LabelsShopComponent {
   }
 
   openPurchaseHistory() {
+    if(!this.currentUserId) {
+      this.redirectService.needLogin();
+      return;
+    }
+
     this.billOfUserDialog = true;
     this.billingService.getAllBillOfCurrentUser(this.user?.id || '').subscribe({
       next: (data) => {
@@ -176,5 +209,12 @@ export class LabelsShopComponent {
       default:
         return 'info';
     }
+  }
+
+  filterNameLabels() {
+    this.filteredLabels = this.labels.filter(label => 
+      label !== undefined && label.name !== undefined && 
+      label.name.toLowerCase().includes(this.searchTerm.toLowerCase())
+    );
   }
 }

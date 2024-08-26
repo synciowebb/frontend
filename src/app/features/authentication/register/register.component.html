@@ -1,13 +1,18 @@
-<div class="wrapper">
-  <div class="form flex col-8 p-0 bg-white align-items-stretch shadow-1">
+<div class="wrapper" style="background-image: url('assets/images/signup-background.png');">
+  <!-- lang -->
+  <div class="absolute top-0 right-0 p-4 flex align-items-center gap-4" style="color: var(--surface-900);">
+    <p (click)="switchLang('en')" class="underline cursor-pointer">English</p>
+    <p (click)="switchLang('vi')" class="underline cursor-pointer">Tiếng Việt</p>
+    <span class="pi pi-question-circle cursor-pointer" routerLink="/help" style="font-size: 1.25rem;"></span>
+  </div>
+
+  <div class="form flex col-12 sm:col-8 p-0 align-items-stretch px-4">
     <div *ngIf="isLoading" class="overlay">
       <div class="spinner"></div>
     </div>
     <!-- Left form -->
-    <form
-      class="col-6 flex flex-column gap-5 justify-content-center align-items-center"
-    >
-      <h1>Sign up</h1>
+    <form class="col-12 sm:col-6 flex flex-column gap-5 justify-content-center align-items-center shadow-1">
+      <h1>{{ 'register.sign_up' | translate }}</h1>
       <div class="flex flex-column gap-3 w-full">
         <!-- Email -->
         <div class="w-full">
@@ -16,6 +21,7 @@
             placeholder="Email"
             [(ngModel)]="email"
             name="email"
+            (keydown.enter)="onSubmit()"
           />
         </div>
         <!-- Username -->
@@ -25,49 +31,53 @@
             [(ngModel)]="username"
             name="username"
             placeholder="Username"
+            (keydown.enter)="onSubmit()"
           />
         </div>
         <!-- Password -->
         <div class="w-full">
           <input
             type="password"
-            placeholder="Password"
+            [placeholder]="'register.password' | translate"
             [(ngModel)]="password"
             name="password"
+            (keydown.enter)="onSubmit()"
           />
         </div>
         <!-- Confirm Password -->
         <div class="w-full">
           <input
             type="password"
-            placeholder="Confirm password"
+            [placeholder]="'register.confirm_password' | translate"
             [(ngModel)]="retypePassword"
             name="retypePassword"
+            (keydown.enter)="onSubmit()"
           />
         </div>
       </div>
       <!-- Submit -->
       <p-button
+        [disabled]="!email || !username || !password || !retypePassword"
         (click)="register()"
-        label="Sign up"
+        [label]=" 'register.sign_up' | translate"
         class="w-full"
         styleClass="w-full"
       />
       <!-- Login link -->
       <div>
-        <p routerLink="/login" class="text-center cursor-pointer text-sm mt-2">
-          Have an account? <span class="text-primary font-bold">Log in</span>
+        <p routerLink="/login" class="text-center text-sm mt-2">
+          {{ 'register.already_have_an_account' | translate }}? <span class="text-primary font-bold cursor-pointer">{{ 'register.login' | translate }}</span>
         </p>
-        <p routerLink="/" class="text-center cursor-pointer text-sm mt-2">
-          Continue as guest
+        <p routerLink="/" class="text-primary font-bold text-center cursor-pointer text-sm mt-2">
+          {{ 'register.continue_as_guest' | translate }}
         </p>
       </div>
     </form>
     <!-- Right image -->
-    <div class="col-6 p-0">
+    <div class="col-6 p-0 hidden sm:block">
       <img
         class="w-full h-full"
-        src="/assets/images/signup-mockup.jpg"
+        src="assets/images/signup-mockup.jpg"
         style="object-fit: cover"
         alt=""
       />

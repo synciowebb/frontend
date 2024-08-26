@@ -1,0 +1,48 @@
+<p-dialog *ngIf="isVisible$ | async"
+  [title]="'Login'"
+  [closeOnEscape]="true"
+  [(visible)]="visible"
+  [modal]="true"
+  [dismissableMask]="true"
+  [autoZIndex]="true"
+  (onHide)="closeDialog()"
+  [style]="{ width: 'calc(100vw - 3rem)', minWidth: '260px', maxWidth: '400px' }"
+  [draggable]="false"
+  [resizable]="false">
+  <form class="form flex flex-column gap-5 justify-content-center align-items-center shadow-1">
+    <h1 class="mt-0">{{ 'login.login' | translate }}</h1>
+    <div class="flex flex-column gap-4 w-full">
+      <div class="w-full">
+        <input
+          [placeholder]="'login.email_or_username' | translate"
+          type="email"
+          [(ngModel)]="emailOrUsername"
+          name="email"
+          (keydown.enter)="onSubmit()" />
+      </div>
+      <div class="w-full">
+        <input
+          type="password"
+          [placeholder]="'login.password' | translate"
+          [(ngModel)]="password"
+          name="password"
+          (keydown.enter)="onSubmit()" />
+        <p class="text-right cursor-pointer text-sm mt-2"
+          (click)="navigateToForgotPassword()">
+          {{ 'login.forgot_password' | translate }}?
+        </p>
+      </div>
+    </div>
+    <p-button
+      (click)="login()"
+      [label]="'login.login' | translate"
+      class="w-full"
+      styleClass="w-full" />
+    <div>
+      <p (click)="visible = false" routerLink="/register" class="text-center text-sm mt-2">
+        {{ 'login.dont_have_an_account' | translate }}?
+        <span class="text-primary font-bold cursor-pointer">{{ 'login.sign_up' | translate }}</span>
+      </p>
+    </div>
+  </form>
+</p-dialog>

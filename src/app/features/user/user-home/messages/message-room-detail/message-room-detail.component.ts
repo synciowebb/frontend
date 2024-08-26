@@ -1,9 +1,12 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
 import { MessageRoom } from 'src/app/core/interfaces/message-room';
 import { MessageRoomMember } from 'src/app/core/interfaces/message-room-member';
 import { User } from 'src/app/core/interfaces/user';
+import { LoadingService } from 'src/app/core/services/loading.service';
 import { MessageRoomMemberService } from 'src/app/core/services/message-room-member.service';
 import { MessageRoomService } from 'src/app/core/services/message-room.service';
+import { RedirectService } from 'src/app/core/services/redirect.service';
 import { ToastService } from 'src/app/core/services/toast.service';
 import { DialogItem } from 'src/app/shared/components/global-dialog/global-dialog.component';
 
@@ -14,6 +17,9 @@ import { DialogItem } from 'src/app/shared/components/global-dialog/global-dialo
 })
 
 export class MessageRoomDetailComponent {
+  @Input() isMobile: boolean = false; // Flag to indicate if the device is mobile
+  @Output() backToMessageContentListEvent = new EventEmitter<void>(); // Event emitter to close the message room
+
   @Input() messageRoom: MessageRoom = {}; // current message room
   @Input() currentUser!: User; // Current user logged in.
 
@@ -35,22 +41,55 @@ export class MessageRoomDetailComponent {
     return this.messageRoom?.members?.map(m => m.userId);
   } // list of user ids in the message room
 
+  editMemberDialogItems: DialogItem[] = [];
   _editMemberDialogItems: DialogItem[] = [
     { 
-      label: 'Remove from group',
+      label: this.translateService.instant('message_room_detail.remove_from_group'),
       bold: 7,
       color: 'red', 
       action: () => this.removeMember(this.selectedMember)
     }
   ]; // Dialog items for the edit member dialog
 
-  get editMemberDialogItems(): DialogItem[] {
+  isVisibleLeaveChat: boolean = false; // Indicates if the leave chat dialog is visible
+  leaveChatDialogItems: any = [
+    { 
+      label: this.translateService.instant('message_room_detail.leave_chat'),
+      color: 'red', 
+      bold: 7,
+      action: () => this.leaveChat()
+    },
+    { 
+      label: this.translateService.instant('common.cancel'),
+      action: () => this.isVisibleLeaveChat = false
+    }
+  ]; // Dialog items for the leave chat dialog
+
+  get isAdmin(): boolean {
+    return this.messageRoom?.members?.find(m => m.userId === this.currentUser.id && m.admin) ? true : false;
+  } // Check if the current user is admin of the message room
+
+  constructor(
+    private messageRoomService: MessageRoomService,
+    private messageRoomMemberService: MessageRoomMemberService,
+    private toastService: ToastService,
+    private translateService: TranslateService,
+    private redirectService: RedirectService,
+    private loadingService: LoadingService
+  ) { }
+
+  ngOnInit() {
+    this.newMessageRoomName = this.messageRoom.name || '';
+    this.updateEditMemberDialogItems();
+  }
+
+  updateEditMemberDialogItems() {
     var items: DialogItem[] = this._editMemberDialogItems;
     if(!this.selectedMember.admin) {
       items = [
         ...items,
         { 
-          label: 'Make admin',
+          label: this.translateService.instant('message_room_detail.make_admin'),
           action: () => this.makeAdmin(this.selectedMember)
         }
       ];
@@ -59,42 +98,24 @@ export class MessageRoomDetailComponent {
       items = [
         ...items,
         { 
-          label: 'Remove admin',
+          label: this.translateService.instant('message_room_detail.remove_admin'),
           action: () => this.removeAdmin(this.selectedMember)
         }
       ];
     }
-    return [
+    this.editMemberDialogItems = [
       ...items,
       { 
-        label: 'Cancel',
+        label: this.translateService.instant('common.cancel'),
         action: () => this.isVisibleEditMember = false
       }
     ];
   }
 
-  isVisibleLeaveChat: boolean = false; // Indicates if the leave chat dialog is visible
-  leaveChatDialogItems = [
-    { 
-      label: 'Leave chat',
-      color: 'red', 
-      bold: 7,
-      action: () => this.leaveChat()
-    },
-    { 
-      label: 'Cancel',
-      action: () => this.isVisibleLeaveChat = false
-    }
-  ]; // Dialog items for the leave chat dialog
-
-  constructor(
-    private messageRoomService: MessageRoomService,
-    private messageRoomMemberService: MessageRoomMemberService,
-    private toastService: ToastService
-  ) { }
-
-  ngOnInit() {
-    this.newMessageRoomName = this.messageRoom.name || '';
+  selectMemberToEdit(member: MessageRoomMember) {
+    this.selectedMember = member;
+    this.updateEditMemberDialogItems();
+    this.isVisibleEditMember = true; 
   }
 
   updateGroupName() {
@@ -116,14 +137,22 @@ export class MessageRoomDetailComponent {
     const userIds = event.map(user => user.id).filter((id): id is string => id !== undefined);
     if (!this.messageRoom.id || userIds.length === 0) return;
 
+    this.loadingService.show();
+
     this.messageRoomMemberService.addMessageRoomMembers(this.messageRoom.id, userIds).subscribe({
       next: (messageRoomMembers) => {
         this.messageRoom.members = [...(this.messageRoom.members || []), ...messageRoomMembers];
         this.addPeopleEvent.emit(userIds.join(', '));
         this.isVisibleAddPeople = false;
+        this.loadingService.hide();
       },
       error: (error) => {
         console.log(error);
+        this.loadingService.hide();
+        this.toastService.showError(
+          this.translateService.instant('common.error'),
+          error.error.message
+        )
       }
     });
     this.isVisibleAddPeople = true;
@@ -142,7 +171,7 @@ export class MessageRoomDetailComponent {
             next: () => {
               this.messageRoom.members = this.messageRoom.members?.filter(m => m.userId !== this.currentUser.id);
               this.leaveChatEvent.emit(this.currentUser.id);
-              window.location.replace('/messages');
+              this.redirectService.redirectAndReload('/messages');
             },
             error: (error) => {
               console.log(error);
@@ -202,6 +231,14 @@ export class MessageRoomDetailComponent {
         console.log(error);
       }
     });
+  }
+
+
+  /**
+   * When device is mobile, click on the back button to close the message room detail
+   */
+  backToMessageContentList() {
+    this.backToMessageContentListEvent.emit();
   }
 
 }

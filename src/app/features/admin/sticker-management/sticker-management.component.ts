@@ -82,7 +82,9 @@ export class StickerManagementComponent {
   saveStickerGroup() {
     if (this.selectedStickerGroup.id) {
       // Update
-      this.stickerGroupService.updateStickerGroup(this.selectedStickerGroup).subscribe({
+      let stickerGroup = { ...this.selectedStickerGroup };
+      delete stickerGroup.stickers; // prevent sending stickers array
+      this.stickerGroupService.updateStickerGroup(stickerGroup).subscribe({
         next: (data) => {
           this.isStickerGroupDialogVisible = false;
           this.messageService.add({severity:'success', summary:'Success', detail:'Sticker Group Updated'});
@@ -190,11 +192,12 @@ export class StickerManagementComponent {
       // Create
       this.stickerService.createSticker(formData).subscribe({
         next: (data) => {
+          let date = new Date();
           // set sticker id, createdDate, createdBy, imageUrl
           this.selectedSticker = { 
             ...this.selectedSticker,
             id: data,
-            createdDate: new Date().toISOString(),
+            createdDate: new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString(),
             createdBy: this.currentUserId,
             imageUrl: "stickers/" + data + ".jpg"
           };

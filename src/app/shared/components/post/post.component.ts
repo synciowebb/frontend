@@ -1,10 +1,15 @@
 import { Location } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { tap } from 'rxjs';
+import { ChangeDetectorRef, Component, EventEmitter, Input, Output } from '@angular/core';
+import { Router } from '@angular/router';
+import { TranslateService } from '@ngx-translate/core';
+import { Carousel } from 'primeng/carousel';
+import { Subscription, tap } from 'rxjs';
 import { Post, Visibility } from 'src/app/core/interfaces/post';
 import { Report } from 'src/app/core/interfaces/report';
+import { RedirectService } from 'src/app/core/services/redirect.service';
 import { ReportService } from 'src/app/core/services/report.service';
 import { ToastService } from 'src/app/core/services/toast.service';
+import { TokenService } from 'src/app/core/services/token.service';
 import { TextUtils } from 'src/app/core/utils/text-utils';
 
 @Component({
@@ -24,22 +29,7 @@ export class PostComponent {
   
   dialogVisible: boolean = false;
   
-  dialogItems: any = [
-    { 
-      label: 'Report', 
-      bold: 7,
-      color: 'red', 
-      action: () => this.showReportModal() 
-    },
-    { 
-      label: 'Copy link',
-      action: () => this.copyLink()
-    },
-    { 
-      label: 'Cancel',
-      action: () => this.dialogVisible = false
-    }
-  ];
+  dialogItems: any = [];
   
   reasonDialogVisible: boolean = false;
 
@@ -56,13 +46,24 @@ export class PostComponent {
 
   isViewMore: boolean = false;
 
-  Visibility = Visibility
+  Visibility = Visibility;
+
+  collectionVisible: boolean = false;
+
+  currentUserId: string = '';
+
+  private langChangeSubscription: Subscription = new Subscription();
 
   constructor(
     private location: Location,
     private textUtils: TextUtils,
     private toastService: ToastService,
-    private reportService: ReportService
+    private reportService: ReportService,
+    private translateService: TranslateService,
+    private tokenService: TokenService,
+    private redirectService: RedirectService,
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   hideDialog() {
@@ -70,14 +71,58 @@ export class PostComponent {
   }
   
   ngOnInit(): void {
+    // fix cant touch and scroll on mobile
+    Carousel.prototype.onTouchMove = () => { };
+
+    this.currentUserId = this.tokenService.extractUserIdFromToken();
+
+    this.initializeDialogItems();
+    // Subscribe to language change events
+    this.langChangeSubscription = this.translateService.onLangChange.subscribe(() => {
+      this.initializeDialogItems();
+      this.cdr.detectChanges(); // Manually trigger change detection
+    });
+
     if (this.isReportedPostsPage) {
       this.getReports();
     }
   }
 
+
+  ngOnDestroy() {
+    // Unsubscribe to avoid memory leaks
+    if (this.langChangeSubscription) {
+      this.langChangeSubscription.unsubscribe();
+    }
+  }
+
+
+  initializeDialogItems() {
+    this.dialogItems = [
+      { 
+        label: this.translateService.instant('post.report'), 
+        bold: 7,
+        color: 'red', 
+        action: () => this.showReportModal() 
+      },
+      { 
+        label: this.translateService.instant('post.copy_link'),
+        action: () => this.copyLink()
+      },
+      ...(this.post.createdBy === this.currentUserId ? [{ 
+        label: this.translateService.instant('post.save_to_collection'),
+        action: () => this.collectionVisible = true
+      }] : []),
+      { 
+        label: this.translateService.instant('common.cancel'),
+        action: () => this.dialogVisible = false
+      }
+    ];
+  }
+
+
   getReports(): void {
     if (this.post.id) {
-      console.log('Post ID:', this.post.id);
       this.reportService.getReportsByPostId(this.post.id).pipe(
         tap(reports => this.reports = reports),
         tap(reports => this.countReasons(reports))
@@ -97,7 +142,12 @@ export class PostComponent {
   }
 
   showReportModal() {
-    this.reportVisible = true;
+    if(!this.tokenService.extractUserIdFromToken()) {
+      this.redirectService.needLogin();
+    }
+    else {
+      this.reportVisible = true;
+    }
   }
 
   handleReportModalVisibility(event: boolean) {
@@ -109,7 +159,10 @@ export class PostComponent {
    */
   async copyLink() {
     await this.textUtils.copyToClipboard(window.location.href + 'post/' + this.post.id);
-    this.toastService.showSuccess('Success', 'Link copied to clipboard');
+    this.toastService.showSuccess(
+      this.translateService.instant('common.success'), 
+      this.translateService.instant('post.link_copied_to_clipboard')
+    );
   }
 
   onActivePost(): void {
@@ -154,6 +207,37 @@ export class PostComponent {
 
   onHidePost(): void {
     this.hidePostEvent.emit(this.post.id);
+  }
+
+
+  /**
+   * Handle the click event on the post caption.
+   * @param event 
+   */
+  handleClick(event: MouseEvent) {
+    // Check if the click event target is a .profile-link element
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'A' && target.getAttribute('data-link')) {
+      event.preventDefault();
+      const profileUrl = target.getAttribute('data-link');
+      this.router.navigate([profileUrl]);
+    }
+  
+    // Toggle isViewMore if not clicked on a .profile-link
+    this.isViewMore = !this.isViewMore;
+  }
+
+
+  /**
+   * Check if the URL is a video by the extension ('mp4', 'webm', 'ogg').
+   * @param url 
+   * @returns true if the URL is a video, false otherwise.
+   */
+  isVideo(url: string | undefined): boolean {
+    if (!url) return false;
+    const videoExtensions = ['mp4', 'webm', 'ogg', 'mov'];
+    const extension = url.split('.').pop();
+    return extension ? videoExtensions.includes(extension) : false;
   }
 
 }
