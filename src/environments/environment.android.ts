@@ -1,8 +1,8 @@
 export const environment = {
   production: true,
   apiUrl: 'https://syncio.space/',
-  apiPythonUrl: 'http://localhost:5000/',
+  apiPythonUrl: 'https://syncio.space/',
   android: true,
   windows: false,
-  githubToken: 'YOUR_ACTUAL_GITHUB_TOKEN'
+  githubToken: 'YOUR_ACTUAL_GITHUB_TOKEN',
 };

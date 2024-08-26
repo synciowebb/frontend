@@ -47,6 +47,8 @@ tools {
         script {
           // Set the new image tag with the Jenkins build number
        sh '''
+         git config user.email "mamnonc23@gmail.com"
+          git config user.name "chuthanh"
           sed -i "s/image:.*/image: chuthanh\\/dockerfile-fronted:${VERSION}/" aws/frontend-deployment.yaml
         '''
 
